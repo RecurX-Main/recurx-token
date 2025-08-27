@@ -87,6 +87,17 @@ contract PublicSale is
     uint32 internal constant PRESALE_TGE_RELEASE_OFFSET_MONTHS = 0;
 
     // -------- Initialization --------
+    /// @notice Initializes the PublicSale contract with required parameters.
+    /// @param _rcx Address of the RCX token (18 decimals).
+    /// @param _usdt Address of the USDT token (6 decimals).
+    /// @param _usdc Address of the USDC token (6 decimals).
+    /// @param _nativeUsdFeed Chainlink price feed address for native/USD.
+    /// @param _vestingFactory Address of the RCX vesting factory.
+    /// @param _owner Address of the contract owner.
+    /// @param _tokenPriceUsd6 Price of one RCX token in USD (6 decimals).
+    /// @param _tgeTimestamp Timestamp for the TGE (Token Generation Event).
+    /// @param _maxPerWallet Maximum RCX an individual wallet can purchase.
+
     function initialize(
         address _rcx,
         address _usdt,
@@ -121,10 +132,16 @@ contract PublicSale is
         saleActive = false;
     }
 
+    /// @notice Starts the public sale. Only callable by the owner.
     function startSale() external onlyOwner { saleActive = true; emit SaleStarted(); }
+
+    /// @notice Stops the public sale. Only callable by the owner.
     function stopSale() external onlyOwner { saleActive = false; emit SaleStopped(); }
 
+    /// @notice Pauses the contract, disabling sensitive functions. Only callable by the owner.
     function pause() external onlyOwner { _pause(); }
+
+    /// @notice Unpauses the contract. Only callable by the owner.
     function unpause() external onlyOwner { _unpause(); }
 
     // function approveKYC(address user, bool approved) external onlyOwner {
@@ -148,28 +165,43 @@ contract PublicSale is
     //     emit KYCBatchApproved(length);
     // }
 
+    /// @notice Updates the token price in USD (6 decimals).
+    /// @param usd6 The new price per RCX token in USD with 6 decimals.
     function setTokenPriceUsd6(uint256 usd6) external onlyOwner { tokenPriceUsd6 = usd6; emit PriceUpdated(usd6); }
+    
+    /// @notice Sets the maximum number of RCX tokens a wallet can buy.
+    /// @param maxAmount The new maximum amount per wallet.
     function setMaxPerWallet(uint256 maxAmount) external onlyOwner { maxPerWallet = maxAmount; emit MaxPerWalletUpdated(maxAmount); }
+    
+    /// @notice Sets the timestamp for the Token Generation Event (TGE).
+    /// @param ts The new TGE timestamp.
     function setTgeTimestamp(uint256 ts) external onlyOwner { tgeTimestamp = ts; }
 
+    /// @notice Funds the contract with RCX tokens for vesting.
+    /// @param amount Amount of RCX tokens to transfer into the contract.
     function fundRCX(uint256 amount) external onlyOwner {
         rcx.safeTransferFrom(msg.sender, address(this), amount);
         emit RcxFunded(amount);
     }
 
-
+    /// @notice Calculates the USD cost (6 decimals) for a given amount of RCX.
+    /// @param rcxAmount18 Amount of RCX tokens (18 decimals).
+    /// @return cost6 Cost in USD (6 decimals).
     function usdCost6(uint256 rcxAmount18) public view returns (uint256) {
         // rcxAmount * price (6d) / 1e18 -> 6d
         return (rcxAmount18 * tokenPriceUsd6) / 1e18;
     }
 
-    // function for avoiding stale data from pricefeed and update tolerance of stale data
+    /// @notice Sets the maximum time allowed for the price feed to be considered fresh.
+    /// @param tolerance Maximum allowed staleness duration in seconds.
     function setPriceStalenessTolerance(uint256 tolerance) external onlyOwner {
         if (tolerance == 0) revert PublicSale__InvalidTolerance();
         priceStalenessTolerance = tolerance;
     }
 
-    /// Native coin cost for rcxAmount (18d) using Chainlink native/USD feed (answer decimals vary)
+    /// @notice Calculates the cost in native token (ETH, BNB, etc.) for a given RCX amount.
+    /// @param rcxAmount18 Amount of RCX tokens (18 decimals).
+    /// @return costNative Cost in native token (18 decimals).
     function nativeCost(uint256 rcxAmount18) public view returns (uint256) {
         (
             uint80 roundId,
@@ -205,6 +237,8 @@ contract PublicSale is
     }
 
 
+    /// @notice Buys RCX tokens using USDT.
+    /// @param rcxAmount18 Amount of RCX to purchase (18 decimals).
     function buyWithUSDT(uint256 rcxAmount18) external nonReentrant whenNotPaused {
         if (!saleActive) revert PublicSale__SaleInactive();
         if (rcxAmount18 == 0) revert PublicSale__AmountZero();
@@ -222,6 +256,8 @@ contract PublicSale is
         emit Purchased(msg.sender, rcxAmount18, address(usdt), cost6);
     }
 
+    /// @notice Buys RCX tokens using USDC.
+    /// @param rcxAmount18 Amount of RCX to purchase (18 decimals).
     function buyWithUSDC(uint256 rcxAmount18) external nonReentrant whenNotPaused {
         if (!saleActive) revert PublicSale__SaleInactive();
         if (rcxAmount18 == 0) revert PublicSale__AmountZero();
@@ -237,46 +273,48 @@ contract PublicSale is
         emit Purchased(msg.sender, rcxAmount18, address(usdc), cost6);
     }
 
-    /// Pay in native coin (ETH/BNB/MATIC) using Chainlink native/USD feed
-    event DebugStep(string message);
-    event DebugError(string message);
-    event DebugNativeCost(uint256 cost);
+    // event DebugStep(string message);
+    // event DebugError(string message);
+    // event DebugNativeCost(uint256 cost);
 
+    /// Pay in native coin (ETH/BNB/MATIC) using Chainlink native/USD feed
+    /// @notice Buys RCX tokens using native cryptocurrency (e.g., ETH, BNB).
+    /// @param rcxAmount18 Amount of RCX to purchase (18 decimals).
     function buyWithNative(uint256 rcxAmount18) external payable nonReentrant whenNotPaused {
-        emit DebugStep("Entered buyWithNative");
+        // emit DebugStep("Entered buyWithNative");
 
         if (!saleActive) {
-            emit DebugError("Sale not active");
+            // emit DebugError("Sale not active");
             revert PublicSale__SaleInactive();
         }
-        emit DebugStep("Sale active");
+        // emit DebugStep("Sale active");
 
         if (rcxAmount18 == 0) {
-            emit DebugError("Amount zero");
+            // emit DebugError("Amount zero");
             revert PublicSale__AmountZero();
         }
-        emit DebugStep("Amount non-zero");
+        // emit DebugStep("Amount non-zero");
 
         if (purchased[msg.sender] + rcxAmount18 > maxPerWallet) {
-            emit DebugError("Exceeds wallet cap");
+            // emit DebugError("Exceeds wallet cap");
             revert PublicSale__ExceedsWalletCap();
         }
-        emit DebugStep("Within wallet cap");
+        // emit DebugStep("Within wallet cap");
 
         if (totalSold + rcxAmount18 > PRESALE_CAP) {
-            emit DebugError("Exceeds presale cap");
+            // emit DebugError("Exceeds presale cap");
             revert PublicSale__ExceedsPresaleCap();
         }
-        emit DebugStep("Within presale cap");
+        // emit DebugStep("Within presale cap");
 
         uint256 need = nativeCost(rcxAmount18);
-        emit DebugNativeCost(need);
+        // emit DebugNativeCost(need);
 
         if (msg.value < need) {
-            emit DebugError("Insufficient native value sent");
+            // emit DebugError("Insufficient native value sent");
             revert PublicSale__InsufficientNative();
         }
-        emit DebugStep("Sufficient native value");
+        // emit DebugStep("Sufficient native value");
 
 
         purchased[msg.sender] += rcxAmount18;
@@ -293,6 +331,9 @@ contract PublicSale is
 
 
     /// After TGE, deploy a personal vesting via RCXVestingFactory and fund it with buyer's purchased RCX.
+    /// @notice Claims purchased RCX tokens and sends them to a vesting contract.
+    /// @dev Deploys a new vesting contract from the factory and transfers tokens.
+
     function claimToVesting() external nonReentrant whenNotPaused {
         if (block.timestamp < tgeTimestamp) revert PublicSale__Unauthorized();
         // require(kycApproved[msg.sender], "KYC");
@@ -312,6 +353,10 @@ contract PublicSale is
         emit ClaimedToVesting(msg.sender, vesting, amount);
     }
 
+    /// @notice Creates a vesting contract for a presale buyer.
+    /// @param beneficiary Address of the user receiving the vesting contract.
+    /// @param allocation Total RCX allocation to be vested.
+    /// @return vesting Address of the newly created vesting contract.
     function _createPresaleVesting(address beneficiary, uint256 allocation) internal returns (address vesting) {
         // RCXVestingFactory.createPresale(token, beneficiary, allocation, tgeTimestamp)
         (bool ok, bytes memory data) = vestingFactory.call(
@@ -330,6 +375,9 @@ contract PublicSale is
 
     // -------- Owner withdrawals --------
 
+    /// @notice Withdraws collected funds (USDT, USDC, native) to a specified address.
+    /// @param to Address to receive the proceeds.
+
     function withdrawProceeds(address payable to) external onlyOwner nonReentrant {
         if (to == address(0)) revert PublicSale__ZeroToAddress();
         uint256 usdtBal = usdt.balanceOf(address(this));
@@ -347,11 +395,16 @@ contract PublicSale is
         emit ProceedsWithdrawn(to, usdtBal, nativeBal);
     }
 
+    /// @notice Returns the total unclaimed liability in RCX.
+    /// @return liability Total amount of unclaimed RCX.
     function unclaimedLiability() external view returns (uint256) {
         return _unclaimedLiability();
     }
     
     /// @notice Recover tokens mistakenly sent (not RCX unless excess over liabilities)
+    /// @param tokenAddr Address of the token to recover.
+    /// @param to Address to send the recovered tokens.
+    /// @param amount Amount of tokens to recover.
     function recoverTokens(address tokenAddr, address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert PublicSale__ZeroToAddress();
         if (amount == 0) revert PublicSale__AmountZero();
@@ -371,7 +424,8 @@ contract PublicSale is
         return totalSold;
     }
 
-    // -------- UUPS --------
+    /// @notice Authorizes a new implementation for UUPS upgradeability.
+    /// @param newImplementation Address of the new contract implementation.
     function _authorizeUpgrade(address newImplementation) internal view override onlyRole(UPGRADER_ROLE) {
         if (newImplementation == address(0)) revert PublicSale__InvalidImplementation();
     }
