@@ -12,6 +12,7 @@ contract RCXDeploy is Script {
     // ======== TODO: fill these ========
     address constant OWNER           = 0xbA391F0B052Eacdc3Bf9a2ee1ebD091f8f9c3828;
     address constant USDT            = 0xb575400Da99E13e2d1a2B21115290Ae669e361f0;
+    address constant USDC            = 0xb575400Da99E13e2d1a2B21115290Ae669e361f0;
     address constant NATIVE_USD_FEED = 0x694AA1769357215DE4FAC081bf1f309aDC325306;
     uint256 constant TGE_TIMESTAMP   = 1735689600;            // e.g., 1735689600
     uint256 constant TOKEN_PRICE_USD6= 100_000;       // $0.05 = 50,000 (6d)
@@ -44,7 +45,7 @@ contract RCXDeploy is Script {
 
         // 3) PublicSale
         PublicSale sale = new PublicSale();
-        sale.initialize(address(rcx), USDT, NATIVE_USD_FEED, address(factoryPresale), OWNER, TOKEN_PRICE_USD6, TGE_TIMESTAMP, MAX_PER_WALLET);
+        sale.initialize(address(rcx), USDT, USDC, NATIVE_USD_FEED, address(factoryPresale), OWNER, TOKEN_PRICE_USD6, TGE_TIMESTAMP, MAX_PER_WALLET);
 
         // Roles & exemptions
         rcx.grantRole(rcx.VESTING_MANAGER_ROLE(), address(sale));

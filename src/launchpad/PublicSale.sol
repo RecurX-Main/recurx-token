@@ -50,6 +50,7 @@ contract PublicSale is
 
     IERC20 public rcx;            // RCX token (18d)
     IERC20 public usdt;           // USDT (6d)
+    IERC20 public usdc;           // USDC (6d)
     AggregatorV3Interface public nativeUsdFeed; // e.g. ETH/USD, BNB/USD, MATIC/USD
     address public vestingFactory;             // RCXVestingFactory
 
@@ -89,6 +90,7 @@ contract PublicSale is
     function initialize(
         address _rcx,
         address _usdt,
+        address _usdc,
         address _nativeUsdFeed,
         address _vestingFactory,
         address _owner,
@@ -96,7 +98,7 @@ contract PublicSale is
         uint256 _tgeTimestamp,
         uint256 _maxPerWallet
     ) public initializer {
-        require(_rcx != address(0) && _usdt != address(0) && _nativeUsdFeed != address(0) && _vestingFactory != address(0) && _owner != address(0), "Invalid addr");
+        require(_rcx != address(0) && _usdt != address(0) && _usdc != address(0) && _nativeUsdFeed != address(0) && _vestingFactory != address(0) && _owner != address(0), "Invalid addr");
         __Ownable_init(_owner);
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -108,6 +110,7 @@ contract PublicSale is
 
         rcx = IERC20(_rcx);
         usdt = IERC20(_usdt);
+        usdc = IERC20(_usdc);
         nativeUsdFeed = AggregatorV3Interface(_nativeUsdFeed);
         vestingFactory = _vestingFactory;
 
@@ -219,6 +222,21 @@ contract PublicSale is
         emit Purchased(msg.sender, rcxAmount18, address(usdt), cost6);
     }
 
+    function buyWithUSDC(uint256 rcxAmount18) external nonReentrant whenNotPaused {
+        if (!saleActive) revert PublicSale__SaleInactive();
+        if (rcxAmount18 == 0) revert PublicSale__AmountZero();
+        if (purchased[msg.sender] + rcxAmount18 > maxPerWallet) revert PublicSale__ExceedsWalletCap();
+        if (totalSold + rcxAmount18 > PRESALE_CAP) revert PublicSale__ExceedsPresaleCap();
+
+        uint256 cost6 = usdCost6(rcxAmount18); // same as USDT, since 6 decimals
+        usdc.safeTransferFrom(msg.sender, address(this), cost6);
+
+        purchased[msg.sender] += rcxAmount18;
+        totalSold += rcxAmount18;
+
+        emit Purchased(msg.sender, rcxAmount18, address(usdc), cost6);
+    }
+
     /// Pay in native coin (ETH/BNB/MATIC) using Chainlink native/USD feed
     event DebugStep(string message);
     event DebugError(string message);
@@ -316,6 +334,9 @@ contract PublicSale is
         if (to == address(0)) revert PublicSale__ZeroToAddress();
         uint256 usdtBal = usdt.balanceOf(address(this));
         if (usdtBal > 0) usdt.safeTransfer(to, usdtBal);
+
+        uint256 usdcBal = usdc.balanceOf(address(this));
+        if (usdcBal > 0) usdc.safeTransfer(to, usdcBal);
 
         uint256 nativeBal = address(this).balance;
         if (nativeBal > 0) {

@@ -7,11 +7,14 @@ import {RecurXToken} from  "../src/core/RecurxToken.sol";
 import {RCXVestingFactory} from "../src/vesting/RCXVestingFactory.sol";
 import {RCXCategoryVesting} from"../src/vesting/RCXCategoryVesting.sol";
 import {PublicSale} from"../src/launchpad/PublicSale.sol";
+import {MockERC20} from "./mocks/MockERC20.sol";
+import {MockChainlinkFeed} from "./mocks/MockChainlinkFeed.sol";
 
 contract RCXSystemIntegrationTest is Test {
     // Contracts
     RecurXToken public rcxToken;
     MockERC20 public usdt;
+    MockERC20 public usdc;
     MockChainlinkFeed public ethUsdFeed;
     RCXVestingFactory public vestingFactory;
     PublicSale public publicSale;
@@ -46,6 +49,7 @@ contract RCXSystemIntegrationTest is Test {
 
         // Deploy mock USDT (6 decimals)
         usdt = new MockERC20("Tether USD", "USDT", 6);
+        usdc = new MockERC20("USD Coin","USDC",6);
 
         // Deploy mock ETH/USD price feed (8 decimals, $2000)
         ethUsdFeed = new MockChainlinkFeed(int256(ETH_PRICE_USD8), 8);
@@ -63,6 +67,7 @@ contract RCXSystemIntegrationTest is Test {
         publicSale.initialize(
             address(rcxToken),
             address(usdt),
+            address(usdc),
             address(ethUsdFeed),
             address(vestingFactory),
             owner,
@@ -573,75 +578,5 @@ contract RCXSystemIntegrationTest is Test {
         console.log("Remaining Supply:", rcxToken.remainingSupply() / 1e18);
         console.log("Active Vestings:", vestingFactory.total());
         console.log("=================================");
-    }
-}
-
-
-// Mock contracts for testing
-contract MockERC20 {
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    uint8 public decimals;
-    string public name;
-    string public symbol;
-    uint256 public totalSupply;
-
-    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
-    }
-
-    function mint(address to, uint256 amount) external {
-        balanceOf[to] += amount;
-        totalSupply += amount;
-    }
-
-    function transfer(address to, uint256 amount) external returns (bool) {
-        require(balanceOf[msg.sender] >= amount, "Insufficient balance");
-        balanceOf[msg.sender] -= amount;
-        balanceOf[to] += amount;
-        return true;
-    }
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
-        require(balanceOf[from] >= amount, "Insufficient balance");
-        require(allowance[from][msg.sender] >= amount, "Insufficient allowance");
-        balanceOf[from] -= amount;
-        balanceOf[to] += amount;
-        allowance[from][msg.sender] -= amount;
-        return true;
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        allowance[msg.sender][spender] = amount;
-        return true;
-    }
-}
-
-contract MockChainlinkFeed {
-    int256 public price;
-    uint256 public updatedAt;
-    uint8 public decimals;
-
-    constructor(int256 _price, uint8 _decimals) {
-        price = _price;
-        decimals = _decimals;
-        updatedAt = block.timestamp;
-    }
-
-    function updatePrice(int256 _price) external {
-        price = _price;
-        updatedAt = block.timestamp;
-    }
-
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt_,
-        uint80 answeredInRound
-    ) {
-        return (1, price, block.timestamp, updatedAt, 1);
     }
 }
