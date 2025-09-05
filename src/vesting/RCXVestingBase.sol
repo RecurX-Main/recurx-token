@@ -20,6 +20,8 @@ contract RCXVestingBase {
     error RCXVestingBase__TransferFailed();
     error RCXVestingBase__ZeroAddress();
     error RCXVestingBase__RescueFailed();
+    error RCXVestingBase__AmountZero();
+    error RCXVestingBase__InvalidTgeReleaseTimestamp();
 
     IERC20 public immutable token;
     address public beneficiary;
@@ -67,6 +69,7 @@ contract RCXVestingBase {
         if (_token == address(0)) revert RCXVestingBase__ZeroTokenAddress();
         if (_beneficiary == address(0)) revert RCXVestingBase__ZeroBeneficiaryAddress();
         if (_tgeBps > BPS) revert RCXVestingBase__InvalidBasisPoints();
+        if (_tgeReleaseTimestamp <= _startTimestamp) revert RCXVestingBase__InvalidTgeReleaseTimestamp();
         owner = msg.sender;
         token = IERC20(_token);
         beneficiary = _beneficiary;
@@ -146,6 +149,7 @@ contract RCXVestingBase {
         emit Paused(_s_paused);
     }
 
+// check for transfer and claim mechanism
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert RCXVestingBase__ZeroAddress();
         emit OwnershipTransferred(owner, newOwner);
@@ -153,6 +157,7 @@ contract RCXVestingBase {
     }
 
     function rescue(address to, uint256 amount) external onlyOwner {
+        if (amount == 0) revert RCXVestingBase__AmountZero();
         if (to == address(0)) revert RCXVestingBase__ZeroAddress();
         if (!token.transfer(to, amount)) revert RCXVestingBase__RescueFailed();
         emit Rescue(to, amount);

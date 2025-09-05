@@ -9,7 +9,9 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/ut
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import {RecurXToken} from "../core/RecurxToken.sol";
 
 contract PublicSale is
@@ -69,6 +71,8 @@ contract PublicSale is
     mapping(address => uint256) public purchased; // RCX (18d)
     mapping(address => bool) public claimed;      // whether this buyer claimed vesting
 
+    uint256 public totalClaimed; // keeping track of claimed tokens  
+    
     event SaleStarted();
     event SaleStopped();
     // event KYCApproved(address indexed user);
@@ -80,11 +84,12 @@ contract PublicSale is
     event ProceedsWithdrawn(address indexed to, uint256 usdtAmount, uint256 nativeAmount);
     event RcxFunded(uint256 amount);
     event TokensRecovered(address indexed token, address indexed to, uint256 amount);
+    event TgeTimestampUpdated(uint256 ts);
 
-    uint16 internal constant PRESALE_TGE_BPS = 1500; // 15%
-    uint32 internal constant PRESALE_CLIFF_MONTHS = 1;
-    uint32 internal constant PRESALE_VESTING_MONTHS = 9;
-    uint32 internal constant PRESALE_TGE_RELEASE_OFFSET_MONTHS = 0;
+    // uint16 internal constant PRESALE_TGE_BPS = 1500; // 15%
+    // uint32 internal constant PRESALE_CLIFF_MONTHS = 1;
+    // uint32 internal constant PRESALE_VESTING_MONTHS = 9;
+    // uint32 internal constant PRESALE_TGE_RELEASE_OFFSET_MONTHS = 0;
 
     // -------- Initialization --------
     /// @notice Initializes the PublicSale contract with required parameters.
@@ -132,6 +137,10 @@ contract PublicSale is
         saleActive = false;
     }
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /// @notice Starts the public sale. Only callable by the owner.
     function startSale() external onlyOwner { saleActive = true; emit SaleStarted(); }
 
@@ -175,7 +184,11 @@ contract PublicSale is
     
     /// @notice Sets the timestamp for the Token Generation Event (TGE).
     /// @param ts The new TGE timestamp.
-    function setTgeTimestamp(uint256 ts) external onlyOwner { tgeTimestamp = ts; }
+    function setTgeTimestamp(uint256 ts) external onlyOwner {
+        require(ts > block.timestamp, "Invalid TGE timestamp");
+        tgeTimestamp = ts;
+        emit TgeTimestampUpdated(ts);
+    }
 
     /// @notice Funds the contract with RCX tokens for vesting.
     /// @param amount Amount of RCX tokens to transfer into the contract.
@@ -233,7 +246,9 @@ contract PublicSale is
         }
 
         if (normalizedPrice == 0) revert PublicSale__PriceInvalid();
-        return (usd18 * 1e18) / normalizedPrice;
+        // return (usd18 * 1e18) / normalizedPrice;
+        return Math.mulDiv(usd18, 1e18, normalizedPrice);
+
     }
 
 
@@ -350,6 +365,8 @@ contract PublicSale is
 
         claimed[msg.sender] = true;
 
+        totalClaimed += amount; // keep track of totalclaimed tokens by vesting users
+
         emit ClaimedToVesting(msg.sender, vesting, amount);
     }
 
@@ -359,6 +376,7 @@ contract PublicSale is
     /// @return vesting Address of the newly created vesting contract.
     function _createPresaleVesting(address beneficiary, uint256 allocation) internal returns (address vesting) {
         // RCXVestingFactory.createPresale(token, beneficiary, allocation, tgeTimestamp)
+        
         (bool ok, bytes memory data) = vestingFactory.call(
             abi.encodeWithSignature(
                 "createPresale(address,address,uint256,uint256)",
@@ -419,9 +437,10 @@ contract PublicSale is
         emit TokensRecovered(tokenAddr, to, amount);
     }
 
-    
+
     function _unclaimedLiability() internal view returns (uint256) {
-        return totalSold;
+        // return totalSold;
+        return totalSold - totalClaimed;
     }
 
     /// @notice Authorizes a new implementation for UUPS upgradeability.

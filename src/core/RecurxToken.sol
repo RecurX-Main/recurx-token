@@ -37,7 +37,11 @@ contract RecurXToken is
     bytes32 public constant VESTING_MANAGER_ROLE = keccak256("VESTING_MANAGER_ROLE");
 
     uint256 public constant TOTAL_SUPPLY = 500_000_000 * 10 ** 18;
-    uint256 public constant BURN_FEE_PERCENT = 1;
+
+    // uint256 public constant BURN_FEE_PERCENT = 1;
+    uint256 public constant BURN_FEE_BPS = 1; // 0.001%
+    uint256 public constant BPS_DENOMINATOR = 100_000;
+
 
     uint256 public s_totalBurned;
     bool public s_burnFeeEnabled;
@@ -70,6 +74,10 @@ contract RecurXToken is
         s_burnFeeEnabled = true;
 
         s_burnFeeExempt[initialOwner] = true;
+    }
+
+    constructor() {
+        _disableInitializers();
     }
 
     /// @notice Exempts a vesting contract from burn fees.
@@ -138,6 +146,7 @@ contract RecurXToken is
     function burnFrom(address account, uint256 amount) external {
         if (amount == 0) revert RecurXToken__AmountMustBeGreaterThanZero();
         if (account == address(0)) revert RecurXToken__InvalidAddress();
+        if (balanceOf(account) < amount) revert RecurXToken__InsufficientBalance();
 
         uint256 currentAllowance = allowance(account, msg.sender);
         if (currentAllowance < amount) revert RecurXToken__InsufficientAllowance();
@@ -149,12 +158,30 @@ contract RecurXToken is
     }
 
     function _update(address from, address to, uint256 amount) internal override whenNotPaused {
-        if (to == address(0)) revert RecurXToken__TransferToZeroAddress();
+        // if (to == address(0)) revert RecurXToken__TransferToZeroAddress();
 
-        if (from != address(0) && to != address(0) && s_burnFeeEnabled) {
+        // if (from != address(0) && to != address(0) && s_burnFeeEnabled) {
+        //     if (!s_burnFeeExempt[from]) {
+        //         uint256 burnAmount = (amount * BURN_FEE_PERCENT) / 100;
+
+        //         if (burnAmount > 0) {
+        //             super._update(from, address(0), burnAmount);
+        //             s_totalBurned += burnAmount;
+        //             emit TokensBurned(from, burnAmount, "Transfer burn fee");
+
+        //             amount -= burnAmount;
+        //         }
+        //     }
+        // }
+
+        // super._update(from, to, amount);
+
+        if (from != address(0) && to != address(0) && s_burnFeeEnabled) { 
             if (!s_burnFeeExempt[from]) {
-                uint256 burnAmount = (amount * BURN_FEE_PERCENT) / 100;
 
+                // uint256 burnAmount = (amount * BURN_FEE_PERCENT) / 100; 
+                uint256 burnAmount = (amount * BURN_FEE_BPS) / BPS_DENOMINATOR;
+                
                 if (burnAmount > 0) {
                     super._update(from, address(0), burnAmount);
                     s_totalBurned += burnAmount;
@@ -182,7 +209,9 @@ contract RecurXToken is
             return (amount, 0);
         }
 
-        burnAmount = (amount * BURN_FEE_PERCENT) / 100;
+        // burnAmount = (amount * BURN_FEE_PERCENT) / 100;
+        burnAmount = (amount * BURN_FEE_BPS) / BPS_DENOMINATOR;
+
         effectiveAmount = amount - burnAmount;
         return (effectiveAmount, burnAmount);
     }
@@ -195,9 +224,15 @@ contract RecurXToken is
 
     /// @notice Returns the current burn fee percentage.
     /// @return The burn fee percentage (1%).
-    function getBurnFeePercent() external pure returns (uint256) {
-        return BURN_FEE_PERCENT;
+    // function getBurnFeePercent() external pure returns (uint256) {
+    //     return BURN_FEE_PERCENT;
+    // }
+
+    /// @notice Returns the burn fee in basis points.
+    function getBurnFeeBps() external pure returns (uint256) {
+        return BURN_FEE_BPS;
     }
+
 
     /// @notice Checks if an account is exempt from burn fees.
     /// @param account The address to check.
