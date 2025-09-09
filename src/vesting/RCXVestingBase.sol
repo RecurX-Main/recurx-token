@@ -69,7 +69,7 @@ contract RCXVestingBase {
         if (_token == address(0)) revert RCXVestingBase__ZeroTokenAddress();
         if (_beneficiary == address(0)) revert RCXVestingBase__ZeroBeneficiaryAddress();
         if (_tgeBps > BPS) revert RCXVestingBase__InvalidBasisPoints();
-        if (_tgeReleaseTimestamp <= _startTimestamp) revert RCXVestingBase__InvalidTgeReleaseTimestamp();
+        if (_tgeReleaseTimestamp < _startTimestamp) revert RCXVestingBase__InvalidTgeReleaseTimestamp();
         owner = msg.sender;
         token = IERC20(_token);
         beneficiary = _beneficiary;
