@@ -93,8 +93,8 @@ contract RCXVestingFactory {
 
     function createLiquidity(address token, address beneficiary, uint256 allocation, uint256 tgeTimestamp)
         external onlyOwner returns (address)
-    // { return _deploy("Liquidity", token, beneficiary, allocation, 6000, tgeTimestamp, 1, 12, 0); }
-    { return _deploy("Liquidity", token, beneficiary, allocation, 6000, tgeTimestamp, 1, 12, 1); }
+    { return _deploy("Liquidity", token, beneficiary, allocation, 6000, tgeTimestamp, 1, 12, 0); }
+    // { return _deploy("Liquidity", token, beneficiary, allocation, 6000, tgeTimestamp, 1, 12, 1); }
 
     function createTeam(address token, address beneficiary, uint256 allocation, uint256 tgeTimestamp)
         external onlyOwner returns (address)
@@ -108,7 +108,8 @@ contract RCXVestingFactory {
 
     function createCommunity(address token, address beneficiary, uint256 allocation, uint256 tgeTimestamp)
         external onlyOwner returns (address)
-    { return _deploy("Community", token, beneficiary, allocation, 1000, tgeTimestamp, 0, 24, 1); }
+    { return _deploy("Community", token, beneficiary, allocation, 1000, tgeTimestamp, 0, 24, 0); }
+    // { return _deploy("Community", token, beneficiary, allocation, 1000, tgeTimestamp, 0, 24, 1); }
     // { return _deploy("Community", token, beneficiary, allocation, 1200, tgeTimestamp, 0, 12, 0); }
 
     function createDevelopment(address token, address beneficiary, uint256 allocation, uint256 tgeTimestamp)
