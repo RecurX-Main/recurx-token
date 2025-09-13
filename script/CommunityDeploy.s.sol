@@ -7,11 +7,11 @@ import {RCXVestingFactory} from "../src/vesting/RCXVestingFactory.sol";
 
 contract CommunityDeploy is Script {
 
-    address constant OWNER = 0xbA391F0B052Eacdc3Bf9a2ee1ebD091f8f9c3828;
+    address constant OWNER = 0xc1DF2461Bae83Cf84431d71996187414A1C85D8e;
 
-    address constant BEN_COMMUNITY = 0x67E199710d81c46910F5e120B3D17933CE0D0314;
+    address constant BEN_COMMUNITY = 0xCd9FBDaF769a42C4798553C1029bbBf9c16958C3;
 
-    address constant RCX_TOKEN = 0x44221ba12dDf2D2C165F090aaeD4fb064744CC20;
+    address constant RCX_TOKEN = 0x7c533FF74f965e9E040EDBc6b4322601eB9Fe022;
 
     uint256 COMMUNITY_ALLOCATION = 50_000_000e18;
 

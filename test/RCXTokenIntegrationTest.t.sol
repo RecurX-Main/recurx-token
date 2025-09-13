@@ -9,6 +9,7 @@ import {RCXCategoryVesting} from"../src/vesting/RCXCategoryVesting.sol";
 import {PublicSale} from"../src/launchpad/PublicSale.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockChainlinkFeed} from "./mocks/MockChainlinkFeed.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract RCXSystemIntegrationTest is Test {
     // Contracts
@@ -55,8 +56,12 @@ contract RCXSystemIntegrationTest is Test {
         ethUsdFeed = new MockChainlinkFeed(int256(ETH_PRICE_USD8), 8);
 
         // Deploy RCX Token
-        rcxToken = new RecurXToken();
-        rcxToken.initialize(owner);
+        // rcxToken = new RecurXToken();
+        // rcxToken.initialize(owner);
+        RecurXToken impl = new RecurXToken();
+        bytes memory initData = abi.encodeWithSelector(RecurXToken.initialize.selector, owner);
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        rcxToken = RecurXToken(address(proxy));
 
 
         // Deploy Vesting Factory
@@ -137,6 +142,9 @@ contract RCXSystemIntegrationTest is Test {
         // Phase 8: Final State and Cleanup
         console.log("\n--- Phase 8: Final State ---");
         _testFinalState();
+
+        console.log("\n--- New Test----");
+        testRCXTokenTransfer();
 
         console.log("\n=== COMPLETE SYSTEM FLOW TEST PASSED ===");
     }
@@ -533,6 +541,24 @@ contract RCXSystemIntegrationTest is Test {
         
         console.log(" Failure scenarios handled correctly");
     }
+
+function testRCXTokenTransfer() public {
+// Assume Alice already has some RCX tokens from previous setup/purchase
+        uint256 aliceInitial = rcxToken.balanceOf(alice);
+        uint256 transferAmount = 500e18;
+
+        // Act: Alice transfers tokens to Bob
+        vm.startPrank(alice);
+        rcxToken.transfer(bob, transferAmount);
+        vm.stopPrank();
+
+        // Assert: Check balances
+        uint256 aliceBalance = rcxToken.balanceOf(alice);
+        uint256 bobBalance = rcxToken.balanceOf(bob);
+        assertEq(aliceBalance, aliceInitial - transferAmount, "Alice should have correct RCX left");
+        assertEq(bobBalance, transferAmount, "Bob should have received 500 RCX");
+    }
+
 
     function testPriceFeedEdgeCases() public {
         console.log("\n=== TESTING PRICE FEED EDGE CASES ===");
