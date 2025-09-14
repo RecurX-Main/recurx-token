@@ -1,7 +1,7 @@
-// script/RCXDeploy.s.sol
-// forge script script/RCXDeploy.s.sol:RCXDeploy --rpc-url $RPC --private-key $PK --broadcast
-
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
+
+// forge script script/RCXDeploy.s.sol:RCXDeploy --rpc-url $RPC --private-key $PK --broadcast
 
 import "forge-std/Script.sol";
 import {RecurXToken} from "../src/core/RecurxToken.sol";
