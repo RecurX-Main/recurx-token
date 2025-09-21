@@ -152,6 +152,7 @@ contract PublicSale is
         maxPerWallet = _maxPerWallet == 0 ? 100_000e18 : _maxPerWallet; // default 100k RCX
 
         saleActive = false;
+        priceStalenessTolerance = 1 hours; // Ensure staleness tolerance is set
 
         currentStageIndex = 0;
     }
@@ -361,41 +362,41 @@ contract PublicSale is
     /// @notice Calculates the cost in native token (ETH, BNB, etc.) for a given RCX amount.
     /// @param rcxAmount18 Amount of RCX tokens (18 decimals).
     /// @return costNative Cost in native token (18 decimals).
-    function nativeCost(uint256 rcxAmount18) public view returns (uint256) {
-        (
-            uint80 roundId,
-            int256 price,
-            // uint256 startedAt
-            ,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        ) = nativeUsdFeed.latestRoundData();
+    // function nativeCost(uint256 rcxAmount18) public view returns (uint256) {
+    //     (
+    //         uint80 roundId,
+    //         int256 price,
+    //         // uint256 startedAt
+    //         ,
+    //         uint256 updatedAt,
+    //         uint80 answeredInRound
+    //     ) = nativeUsdFeed.latestRoundData();
 
-        // Enhanced validations
-        if(price <= 0) revert PublicSale__PriceInvalid();
-        if (updatedAt == 0 || block.timestamp - updatedAt >= priceStalenessTolerance) revert PublicSale__PriceStale();
-        if (answeredInRound < roundId) revert PublicSale__PriceStale();
+    //     // Enhanced validations
+    //     if(price <= 0) revert PublicSale__PriceInvalid();
+    //     if (updatedAt == 0 || block.timestamp - updatedAt >= priceStalenessTolerance) revert PublicSale__PriceStale();
+    //     if (answeredInRound < roundId) revert PublicSale__PriceStale();
 
 
-        uint8 feedDecimals = nativeUsdFeed.decimals();
-        if (feedDecimals > 18) revert PublicSale__InvalidDecimals();
+    //     uint8 feedDecimals = nativeUsdFeed.decimals();
+    //     if (feedDecimals > 18) revert PublicSale__InvalidDecimals();
 
-        uint256 usdCost = usdCost6(rcxAmount18); // 6 decimals
-        uint256 usd18 = usdCost * 1e12; // Convert to 18 decimals
+    //     uint256 usdCost = usdCost6(rcxAmount18); // 6 decimals
+    //     uint256 usd18 = usdCost * 1e12; // Convert to 18 decimals
 
-        uint256 normalizedPrice;
-        if (feedDecimals <= 18) {
-            normalizedPrice = uint256(price) * (10 ** (18 - feedDecimals));
-        } else {
-            // This shouldn't happen with the require above, but defensive programming
-            normalizedPrice = uint256(price) / (10 ** (feedDecimals - 18));
-        }
+    //     uint256 normalizedPrice;
+    //     if (feedDecimals <= 18) {
+    //         normalizedPrice = uint256(price) * (10 ** (18 - feedDecimals));
+    //     } else {
+    //         // This shouldn't happen with the require above, but defensive programming
+    //         normalizedPrice = uint256(price) / (10 ** (feedDecimals - 18));
+    //     }
 
-        if (normalizedPrice == 0) revert PublicSale__PriceInvalid();
-        // return (usd18 * 1e18) / normalizedPrice;
-        return Math.mulDiv(usd18, 1e18, normalizedPrice);
+    //     if (normalizedPrice == 0) revert PublicSale__PriceInvalid();
+    //     // return (usd18 * 1e18) / normalizedPrice;
+    //     return Math.mulDiv(usd18, 1e18, normalizedPrice);
 
-    }
+    // }
 
 
     /// @notice Buys RCX tokens using USDT.
@@ -476,7 +477,17 @@ contract PublicSale is
         emit Purchased(msg.sender, rcxAmount18, address(0), need);
     }
 
-     function _usdToNative(uint256 usdAmount6) internal view returns (uint256) {
+    function usdToNative(uint256 usdAmount6) public view returns (uint256) {
+        return _usdToNative(usdAmount6);
+    }
+
+    function nativeCost(uint256 rcxAmount18) public view returns (uint256) {
+        (uint256 cost, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
+        require(canPurchase, "Exceeds available allocation");
+        return _usdToNative(cost);
+    }
+
+    function _usdToNative(uint256 usdAmount6) internal view returns (uint256) {
         (
             uint80 roundId,
             int256 price,
@@ -522,7 +533,7 @@ contract PublicSale is
             stage.tokenAllocation - stage.tokensSold
         );
     }
-    
+
     /**
      * @notice Get total number of stages
      */
