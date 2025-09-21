@@ -21,73 +21,73 @@ contract PublicSaleDeploy is Script {
 
     address constant RCX_VESTING_FACTORY = 0xeE0ff42ce74C030689B46E1a25fCEd0764b332ED;
 
-    // BSC Mainnet Token Addresses
-    address constant USDT_BSC = 0x524bC91Dc82d6b90EF29F76A3ECAaBAffFD490Bc; // BSC USDT
-    address constant USDC_BSC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d; // BSC USDC
+    // BSC Mainnet Token Addresses (VERIFIED ON BSCSCAN)
+    address constant USDT_BSC = 0x55d398326f99059fF775485246999027B3197955; // BSC USDT (18 decimals)
+    address constant USDC_BSC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d; // BSC USDC (18 decimals)
 
     // BSC Mainnet Chainlink BNB/USD Price Feed (8 decimals)
     address constant BNB_USD_FEED = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE;
 
     // Sale Configuration
     uint256 TGE_TIMESTAMP = block.timestamp; // Sept 21, 2025 (example timestamp)
-    uint256 constant TOKEN_PRICE_USD6 = 100000; // $0.10 in 6 decimals (fallback price)
+    uint256 constant TOKEN_PRICE_USD18 = 100000; // $0.10 in 18 decimals (fallback price)
     uint256 constant MAX_PER_WALLET = 100_000e18; // 100k RCX max per wallet
 
-    uint256 constant FALLBACK_TOKEN_PRICE_USD6 = 100000; // $0.10 fallback price
+    uint256 constant FALLBACK_TOKEN_PRICE_USD18 = 100000; // $0.10 fallback price
 
-    // Stage prices in USD with 6 decimals (Price_USD * 1,000,000)
+    // Stage prices in USD with 18 decimals (Price_USD * 1e18)
     // Based on CSV data: $0.06 to $0.19
     uint256[] public stagePrices = [
-        60000, // Stage 1: $0.06
-        61000, // Stage 2: $0.061
-        63000, // Stage 3: $0.063
-        64000, // Stage 4: $0.064
-        66000, // Stage 5: $0.066
-        67000, // Stage 6: $0.067
-        69000, // Stage 7: $0.069
-        71000, // Stage 8: $0.071
-        72000, // Stage 9: $0.072
-        74000, // Stage 10: $0.074
-        76000, // Stage 11: $0.076
-        78000, // Stage 12: $0.078
-        80000, // Stage 13: $0.08
-        81000, // Stage 14: $0.081
-        83000, // Stage 15: $0.083
-        85000, // Stage 16: $0.085
-        87000, // Stage 17: $0.087
-        90000, // Stage 18: $0.09
-        92000, // Stage 19: $0.092
-        94000, // Stage 20: $0.094
-        96000, // Stage 21: $0.096
-        98000, // Stage 22: $0.098
-        101000, // Stage 23: $0.101
-        103000, // Stage 24: $0.103
-        106000, // Stage 25: $0.106
-        108000, // Stage 26: $0.108
-        111000, // Stage 27: $0.111
-        113000, // Stage 28: $0.113
-        116000, // Stage 29: $0.116
-        119000, // Stage 30: $0.119
-        122000, // Stage 31: $0.122
-        124000, // Stage 32: $0.124
-        127000, // Stage 33: $0.127
-        130000, // Stage 34: $0.13
-        134000, // Stage 35: $0.134
-        137000, // Stage 36: $0.137
-        140000, // Stage 37: $0.14
-        143000, // Stage 38: $0.143
-        147000, // Stage 39: $0.147
-        150000, // Stage 40: $0.15
-        154000, // Stage 41: $0.154
-        157000, // Stage 42: $0.157
-        161000, // Stage 43: $0.161
-        165000, // Stage 44: $0.165
-        169000, // Stage 45: $0.169
-        173000, // Stage 46: $0.173
-        177000, // Stage 47: $0.177
-        181000, // Stage 48: $0.181
-        186000, // Stage 49: $0.186
-        190000 // Stage 50: $0.19
+        60000000000000000, // Stage 1: $0.06
+        61000000000000000, // Stage 2: $0.061
+        63000000000000000, // Stage 3: $0.063
+        64000000000000000, // Stage 4: $0.064
+        66000000000000000, // Stage 5: $0.066
+        67000000000000000, // Stage 6: $0.067
+        69000000000000000, // Stage 7: $0.069
+        71000000000000000, // Stage 8: $0.071
+        72000000000000000, // Stage 9: $0.072
+        74000000000000000, // Stage 10: $0.074
+        76000000000000000, // Stage 11: $0.076
+        78000000000000000, // Stage 12: $0.078
+        80000000000000000, // Stage 13: $0.08
+        81000000000000000, // Stage 14: $0.081
+        83000000000000000, // Stage 15: $0.083
+        85000000000000000, // Stage 16: $0.085
+        87000000000000000, // Stage 17: $0.087
+        90000000000000000, // Stage 18: $0.09
+        92000000000000000, // Stage 19: $0.092
+        94000000000000000, // Stage 20: $0.094
+        96000000000000000, // Stage 21: $0.096
+        98000000000000000, // Stage 22: $0.098
+        101000000000000000, // Stage 23: $0.101
+        103000000000000000, // Stage 24: $0.103
+        106000000000000000, // Stage 25: $0.106
+        108000000000000000, // Stage 26: $0.108
+        111000000000000000, // Stage 27: $0.111
+        113000000000000000, // Stage 28: $0.113
+        116000000000000000, // Stage 29: $0.116
+        119000000000000000, // Stage 30: $0.119
+        122000000000000000, // Stage 31: $0.122
+        124000000000000000, // Stage 32: $0.124
+        127000000000000000, // Stage 33: $0.127
+        130000000000000000, // Stage 34: $0.13
+        134000000000000000, // Stage 35: $0.134
+        137000000000000000, // Stage 36: $0.137
+        140000000000000000, // Stage 37: $0.14
+        143000000000000000, // Stage 38: $0.143
+        147000000000000000, // Stage 39: $0.147
+        150000000000000000, // Stage 40: $0.15
+        154000000000000000, // Stage 41: $0.154
+        157000000000000000, // Stage 42: $0.157
+        161000000000000000, // Stage 43: $0.161
+        165000000000000000, // Stage 44: $0.165
+        169000000000000000, // Stage 45: $0.169
+        173000000000000000, // Stage 46: $0.173
+        177000000000000000, // Stage 47: $0.177
+        181000000000000000, // Stage 48: $0.181
+        186000000000000000, // Stage 49: $0.186
+        190000000000000000 // Stage 50: $0.19
     ];
 
     // Stage allocations in RCX tokens based on CSV data
@@ -173,7 +173,7 @@ contract PublicSaleDeploy is Script {
             address(bnbUsdFeed),
             address(vestingFactory),
             OWNER, // OWNER
-            FALLBACK_TOKEN_PRICE_USD6, // fallback price $0.10
+            FALLBACK_TOKEN_PRICE_USD18, // fallback price $0.10
             TGE_TIMESTAMP, // TGE timestamp
             MAX_PER_WALLET // max per wallet
         );
@@ -193,6 +193,12 @@ contract PublicSaleDeploy is Script {
 
         // 9. Setup Stages
         sale.initializeStages(stagePrices, stageAllocations);
+
+        // 10. Configure Stablecoin Decimals for BSC (18 decimals)
+       // sale.setStablecoinDecimals(18, 18); // BSC USDT and USDC both use 18 decimals
+
+        // 11. Optional: Start the sale (comment out if you want to start manually later)
+        // sale.startSale();
 
         // ✅ Deployment Summary
         console.log("PublicSale deployed at:", address(sale));
