@@ -47,17 +47,18 @@ contract PublicSale is
     error PublicSale__NoExcessRCX();
     error PublicSale__ExceedsExcess();
     error PublicSale__TransferFailed();
+    error PublicSale__SaleNotStarted();
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     IERC20 public rcx;            // RCX token (18d)
-    IERC20 public usdt;           // USDT (6d)
-    IERC20 public usdc;           // USDC (6d)
+    IERC20 public usdt;           // USDT (18d)
+    IERC20 public usdc;           // USDC (18d)
     AggregatorV3Interface public nativeUsdFeed; // e.g. ETH/USD, BNB/USD, MATIC/USD
     address public vestingFactory;             // RCXVestingFactory
 
     uint256 public constant PRESALE_CAP = 20_000_000e18; // 20M RCX (18d)
-    uint256 public tokenPriceUsd6;     // price per RCX in USD with 6 decimals (e.g., $0.10 = 100_000)
+    uint256 public tokenPriceUsd18;     // price per RCX in USD with 18 decimals (e.g., $0.10 = 100_000)
     uint256 public tgeTimestamp;       // unix TGE timestamp; claim enabled at/after this
 
     uint256 public maxPerWallet;       // default set in initialize (e.g., 100_000e18)
@@ -74,7 +75,7 @@ contract PublicSale is
     uint256 public totalClaimed; // keeping track of claimed tokens
 
     struct Stage {
-        uint256 priceUsd6; // Price per token in USD (6 decimals)
+        uint256 priceUsd18; // Price per token in USD (18 decimals)
         uint256 tokenAllocation; // Total tokens available in this stage
         uint256 tokensSold; // Tokens sold in this stage
     }
@@ -86,7 +87,7 @@ contract PublicSale is
     event SaleStopped();
     // event KYCApproved(address indexed user);
     // event KYCBatchApproved(uint256 count);
-    event PriceUpdated(uint256 usd6);
+    event PriceUpdated(uint256 usd18);
     event MaxPerWalletUpdated(uint256 maxAmount);
     event Purchased(address indexed buyer, uint256 rcxAmount, address paymentToken, uint256 paymentAmount);
     event ClaimedToVesting(address indexed buyer, address vesting, uint256 rcxAmount);
@@ -95,7 +96,7 @@ contract PublicSale is
     event TokensRecovered(address indexed token, address indexed to, uint256 amount);
     event TgeTimestampUpdated(uint256 ts);
 
-    event StageInitialized(uint256 indexed stageIndex, uint256 priceUsd6, uint256 tokenAllocation);
+    event StageInitialized(uint256 indexed stageIndex, uint256 priceUsd18, uint256 tokenAllocation);
     event StageCompleted(uint256 indexed stageIndex);
     event StageAdvanced(uint256 indexed fromStage, uint256 indexed toStage);
 
@@ -107,12 +108,12 @@ contract PublicSale is
     // -------- Initialization --------
     /// @notice Initializes the PublicSale contract with required parameters.
     /// @param _rcx Address of the RCX token (18 decimals).
-    /// @param _usdt Address of the USDT token (6 decimals).
-    /// @param _usdc Address of the USDC token (6 decimals).
+    /// @param _usdt Address of the USDT token (18 decimals).
+    /// @param _usdc Address of the USDC token (18 decimals).
     /// @param _nativeUsdFeed Chainlink price feed address for native/USD.
     /// @param _vestingFactory Address of the RCX vesting factory.
     /// @param _owner Address of the contract owner.
-    /// @param _tokenPriceUsd6 Price of one RCX token in USD (6 decimals). Default fallback price from now on
+    /// @param _tokenPriceUsd18 Price of one RCX token in USD (18 decimals). Default fallback price from now on
     /// @param _tgeTimestamp Timestamp for the TGE (Token Generation Event).
     /// @param _maxPerWallet Maximum RCX an individual wallet can purchase.
 
@@ -123,7 +124,7 @@ contract PublicSale is
         address _nativeUsdFeed,
         address _vestingFactory,
         address _owner,
-        uint256 _tokenPriceUsd6,
+        uint256 _tokenPriceUsd18,
         uint256 _tgeTimestamp,
         uint256 _maxPerWallet
     ) public initializer {
@@ -147,7 +148,7 @@ contract PublicSale is
         nativeUsdFeed = AggregatorV3Interface(_nativeUsdFeed);
         vestingFactory = _vestingFactory;
 
-        tokenPriceUsd6 = _tokenPriceUsd6; // 6 decimals
+        tokenPriceUsd18 = _tokenPriceUsd18; // 18 decimals
         tgeTimestamp = _tgeTimestamp;
         maxPerWallet = _maxPerWallet == 0 ? 100_000e18 : _maxPerWallet; // default 100k RCX
 
@@ -194,9 +195,9 @@ contract PublicSale is
     //     emit KYCBatchApproved(length);
     // }
 
-    /// @notice Updates the token price in USD (6 decimals).
-    /// @param usd6 The new price per RCX token in USD with 6 decimals.
-    function setTokenPriceUsd6(uint256 usd6) external onlyOwner { tokenPriceUsd6 = usd6; emit PriceUpdated(usd6); }
+    /// @notice Updates the token price in USD (18 decimals).
+    /// @param usd18 The new price per RCX token in USD with 18 decimals.
+    function setTokenPriceUsd18(uint256 usd18) external onlyOwner { tokenPriceUsd18 = usd18; emit PriceUpdated(usd18); }
 
     /// @notice Sets the maximum number of RCX tokens a wallet can buy.
     /// @param maxAmount The new maximum amount per wallet.
@@ -211,18 +212,18 @@ contract PublicSale is
     }
 
     /// @notice Funds the contract with RCX tokens for vesting.
-    /// @param amount Amount of RCX tokens to transfer into the contract.
+    /// @param amount Amount of RCX tokens to transfer into the contract.   
     function fundRCX(uint256 amount) external onlyOwner {
         rcx.safeTransferFrom(msg.sender, address(this), amount);
         emit RcxFunded(amount);
     }
 
-    /// @notice Calculates the USD cost (6 decimals) for a given amount of RCX.
+    /// @notice Calculates the USD cost (18 decimals) for a given amount of RCX.
     /// @param rcxAmount18 Amount of RCX tokens (18 decimals).
-    /// @return cost6 Cost in USD (6 decimals).
-    function usdCost6(uint256 rcxAmount18) public view returns (uint256) {
-        // rcxAmount * price (6d) / 1e18 -> 6d
-        // return (rcxAmount18 * tokenPriceUsd6) / 1e18;
+    /// @return cost18 Cost in USD (18 decimals).
+    function usdCost18(uint256 rcxAmount18) public view returns (uint256) {
+        // rcxAmount * price (18d) / 1e18 -> 18d
+        // return (rcxAmount18 * tokenPriceUsd18) / 1e18;
         (uint256 cost, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
         require(canPurchase, "Exceeds available allocation");
         return cost;
@@ -238,24 +239,24 @@ contract PublicSale is
     //------------>>>  STAGE PRICE FUNCTUONS
 
     /// @notice Initialize all presale stages based on CSV data
-    /// @param _pricesUsd6 Array of stage data (priceUsd6, tokenAllocation)
+    /// @param _pricesUsd18 Array of stage data (priceUsd18, tokenAllocation)
     /// @param _tokenAllocations Number of tokens allocated per stage
 
-    function initializeStages(uint256[] calldata _pricesUsd6, uint256[] calldata _tokenAllocations)
+    function initializeStages(uint256[] calldata _pricesUsd18, uint256[] calldata _tokenAllocations)
         external
         onlyOwner
     {
-        require(_pricesUsd6.length == _tokenAllocations.length, "Array length mismatch");
-        require(_pricesUsd6.length > 0, "At least one stage required");
+        require(_pricesUsd18.length == _tokenAllocations.length, "Array length mismatch"); // q remember to give price usd in 18 decimal here 
+        require(_pricesUsd18.length > 0, "At least one stage required");
 
         // Clear existing stages
         delete stages;
 
         // Add new stages
-        for (uint256 i = 0; i < _pricesUsd6.length; i++) {
-            stages.push(Stage({priceUsd6: _pricesUsd6[i], tokenAllocation: _tokenAllocations[i], tokensSold: 0}));
+        for (uint256 i = 0; i < _pricesUsd18.length; i++) {
+            stages.push(Stage({priceUsd18: _pricesUsd18[i], tokenAllocation: _tokenAllocations[i], tokensSold: 0}));
 
-            emit StageInitialized(i, _pricesUsd6[i], _tokenAllocations[i]);
+            emit StageInitialized(i, _pricesUsd18[i], _tokenAllocations[i]);
         }
 
         currentStageIndex = 0;
@@ -264,17 +265,18 @@ contract PublicSale is
     ///
     /// @notice Calculate total USD cost for purchasing RCX across multiple stages
     /// @param rcxAmount18 Total RCX amount to purchase (18 decimals)
-    /// @return totalCostUsd6 Total cost in USD (6 decimals)
+    /// @return totalCostUsd18 Total cost in USD (18 decimals)
     /// @return canPurchase Whether the purchase is possible
 
     function calculateCostAcrossStages(uint256 rcxAmount18)
         public
         view
-        returns (uint256 totalCostUsd6, bool canPurchase)
+        returns (uint256 totalCostUsd18, bool canPurchase)
     {
         if (stages.length == 0) {
             // Fallback to single price
-            return (usdCost6(rcxAmount18), totalSold + rcxAmount18 <= PRESALE_CAP);
+            // return (usdCost18(rcxAmount18), totalSold + rcxAmount18 <= PRESALE_CAP);
+            revert PublicSale__SaleNotStarted();
         }
 
         uint256 remaining = rcxAmount18;
@@ -291,7 +293,7 @@ contract PublicSale is
             }
 
             uint256 tokensFromThisStage = remaining > availableInStage ? availableInStage : remaining;
-            uint256 costFromThisStage = (tokensFromThisStage * stage.priceUsd6) / 1e18;
+            uint256 costFromThisStage = (tokensFromThisStage * stage.priceUsd18) / 1e18; // q this will return the 18 decimal place ans
 
             totalCost += costFromThisStage;
             remaining -= tokensFromThisStage;
@@ -339,20 +341,20 @@ contract PublicSale is
         view
         returns (
             uint256 stageIndex,
-            uint256 priceUsd6,
+            uint256 priceUsd18,
             uint256 tokenAllocation,
             uint256 tokensSold,
             uint256 tokensRemaining
         )
     {
         if (stages.length == 0) {
-            return (0, tokenPriceUsd6, PRESALE_CAP, totalSold, PRESALE_CAP - totalSold);
+            return (0, tokenPriceUsd18, PRESALE_CAP, totalSold, PRESALE_CAP - totalSold);
         }
 
         Stage memory stage = stages[currentStageIndex];
         return (
             currentStageIndex,
-            stage.priceUsd6,
+            stage.priceUsd18,
             stage.tokenAllocation,
             stage.tokensSold,
             stage.tokenAllocation - stage.tokensSold
@@ -409,17 +411,17 @@ contract PublicSale is
         if (totalSold + rcxAmount18 > PRESALE_CAP) revert PublicSale__ExceedsPresaleCap();
 
         // uint256 cost6 = usdCost6(rcxAmount18); // USDT has 6 decimals
-        (uint256 cost6, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
+        (uint256 cost, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
         if (!canPurchase) revert PublicSale__ExceedsPresaleCap();
 
-        usdt.safeTransferFrom(msg.sender, address(this), cost6);
+        usdt.safeTransferFrom(msg.sender, address(this), cost);
 
         _updateStageProgress(rcxAmount18);
 
         purchased[msg.sender] += rcxAmount18;
         totalSold += rcxAmount18;
 
-        emit Purchased(msg.sender, rcxAmount18, address(usdt), cost6);
+        emit Purchased(msg.sender, rcxAmount18, address(usdt), cost);
     }
 
     /// @notice Buys RCX tokens using USDC.
@@ -430,18 +432,18 @@ contract PublicSale is
         if (purchased[msg.sender] + rcxAmount18 > maxPerWallet) revert PublicSale__ExceedsWalletCap();
         if (totalSold + rcxAmount18 > PRESALE_CAP) revert PublicSale__ExceedsPresaleCap();
 
-        // uint256 cost6 = usdCost6(rcxAmount18); // same as USDT, since 6 decimals
-        (uint256 cost6, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
+        // uint256 cost18 = usdCost18(rcxAmount18); // same as USDT, since 18 decimals
+        (uint256 cost, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
         if (!canPurchase) revert PublicSale__ExceedsPresaleCap();
 
-        usdc.safeTransferFrom(msg.sender, address(this), cost6);
+        usdc.safeTransferFrom(msg.sender, address(this), cost);
 
         _updateStageProgress(rcxAmount18);
 
         purchased[msg.sender] += rcxAmount18;
         totalSold += rcxAmount18;
 
-        emit Purchased(msg.sender, rcxAmount18, address(usdc), cost6);
+        emit Purchased(msg.sender, rcxAmount18, address(usdc), cost);
     }
 
     // event DebugStep(string message);
@@ -457,10 +459,10 @@ contract PublicSale is
         if (purchased[msg.sender] + rcxAmount18 > maxPerWallet) revert PublicSale__ExceedsWalletCap();
         if (totalSold + rcxAmount18 > PRESALE_CAP) revert PublicSale__ExceedsPresaleCap();
 
-        (uint256 costUsd6, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
+        (uint256 costUsd18, bool canPurchase) = calculateCostAcrossStages(rcxAmount18);
         if (!canPurchase) revert PublicSale__ExceedsPresaleCap();
 
-        uint256 need = _usdToNative(costUsd6);
+        uint256 need = _usdToNative(costUsd18);
 
         if (msg.value < need) revert PublicSale__InsufficientNative();
 
@@ -477,8 +479,8 @@ contract PublicSale is
         emit Purchased(msg.sender, rcxAmount18, address(0), need);
     }
 
-    function usdToNative(uint256 usdAmount6) public view returns (uint256) {
-        return _usdToNative(usdAmount6);
+    function usdToNative(uint256 usdAmount18) public view returns (uint256) {
+        return _usdToNative(usdAmount18);
     }
 
     function nativeCost(uint256 rcxAmount18) public view returns (uint256) {
@@ -487,7 +489,7 @@ contract PublicSale is
         return _usdToNative(cost);
     }
 
-    function _usdToNative(uint256 usdAmount6) internal view returns (uint256) {
+    function _usdToNative(uint256 usdAmount18) internal view returns (uint256) {
         (
             uint80 roundId,
             int256 price,
@@ -503,7 +505,7 @@ contract PublicSale is
         uint8 feedDecimals = nativeUsdFeed.decimals();
         if (feedDecimals > 18) revert PublicSale__InvalidDecimals();
 
-        uint256 usd18 = usdAmount6 * 1e12; // Convert to 18 decimals
+        uint256 usd18 = usdAmount18; //* 1e12; // Convert to 18 decimals ,// q  no need to convert here already in 18 decimal place 
         uint256 normalizedPrice;
         if (feedDecimals <= 18) {
             normalizedPrice = uint256(price) * (10 ** (18 - feedDecimals));
@@ -527,7 +529,7 @@ contract PublicSale is
         require(stageIndex < stages.length, "Invalid stage index");
         Stage memory stage = stages[stageIndex];
         return (
-            stage.priceUsd6,
+            stage.priceUsd18,
             stage.tokenAllocation,
             stage.tokensSold,
             stage.tokenAllocation - stage.tokensSold
