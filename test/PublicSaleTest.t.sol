@@ -139,9 +139,9 @@ contract PublicSaleTest is Test {
         rcxToken.approve(address(publicSale), 50_000_000e18); // 50M for sale
         publicSale.fundRCX(50_000_000e18);
 
-        usdt.mint(buyer1, 10_000e6); // $10,000 USDT
+        usdt.mint(buyer1, 1_000_000e6); // $1,000,000 USDT
         usdt.mint(buyer2, 5_000e6); // $5,000 USDT
-        usdc.mint(buyer1, 10_000e6); // $10,000 USDC
+        usdc.mint(buyer1, 1_000_000e6); // $1,000,000 USDC
         usdc.mint(buyer2, 5_000e6); // $5,000 USDC
 
         vm.deal(buyer1, 10 ether);
@@ -192,7 +192,7 @@ contract PublicSaleTest is Test {
 
         // Config
         uint256 tokensPerBuyer = 100_000e18; // MAX_PER_WALLET
-        uint256 totalToBuy = 5_000_000e18;   // Stage 0 allocation
+        uint256 totalToBuy = 5_000_000e18; // Stage 0 allocation
         uint256 tokensBought = 0;
         uint256 buyerIndex = 1;
 
@@ -214,13 +214,7 @@ contract PublicSaleTest is Test {
         }
 
         // Check that we progressed to the next stage
-        (
-            uint256 stageIndex,
-            uint256 priceUsd6,
-            ,
-            ,
-            uint256 tokensRemaining
-        ) = publicSale.getCurrentStage();
+        (uint256 stageIndex, uint256 priceUsd6,,, uint256 tokensRemaining) = publicSale.getCurrentStage();
 
         assertEq(stageIndex, 1, "Should be in stage 1");
         assertEq(priceUsd6, 90_000, "Stage 1 price should be $0.09");
@@ -269,14 +263,13 @@ contract PublicSaleTest is Test {
         vm.stopPrank();
     }
 
-
     function testBuyWithNative() public {
         vm.startPrank(owner);
         publicSale.startSale();
         vm.stopPrank();
 
         uint256 purchaseAmount = 5_000e18; // 5,000 RCX
-        uint256 costUsd6 = (purchaseAmount * 80_000) / 1e18; // Cost in USD (6 decimals)
+        // uint256 costUsd6 = (purchaseAmount * 80_000) / 1e18; // Cost in USD (6 decimals)
         uint256 costEth = publicSale.nativeCost(purchaseAmount);
 
         vm.startPrank(buyer1);
@@ -380,6 +373,7 @@ contract PublicSaleTest is Test {
         vm.stopPrank();
     }
     // checked
+
     function testClaimToVestingAfterTGE() public {
         // Setup: Buy tokens first
         vm.startPrank(owner);
@@ -414,6 +408,7 @@ contract PublicSaleTest is Test {
         assertEq(record.category, "Presale");
     }
     // checked
+
     function testFullVestingFlow() public {
         // 1. Buy tokens
         console2.log("PUBLIC SALE STARTED");
@@ -507,6 +502,7 @@ contract PublicSaleTest is Test {
         vm.stopPrank();
     }
     // checked
+
     function testMultipleBuyersVesting() public {
         // Setup sale
         vm.startPrank(owner);
@@ -567,6 +563,7 @@ contract PublicSaleTest is Test {
         vm.stopPrank();
     }
     // checked
+
     function testDoubleClaimToVesting() public {
         // Setup and buy
         vm.startPrank(owner);
@@ -623,6 +620,7 @@ contract PublicSaleTest is Test {
         assertEq(address(publicSale).balance, 0);
     }
     // checked
+
     function testRecoverExcessTokens() public {
         // Fund extra RCX beyond what's needed for sales
         vm.startPrank(owner);
@@ -650,6 +648,7 @@ contract PublicSaleTest is Test {
         assertEq(rcxToken.balanceOf(address(publicSale)), liability);
     }
     // checked
+
     function testPriceStalenessTolerance() public {
         vm.startPrank(owner);
         publicSale.startSale();
@@ -667,6 +666,7 @@ contract PublicSaleTest is Test {
         vm.stopPrank();
     }
     // checked
+
     function testPauseUnpause() public {
         vm.startPrank(owner);
         publicSale.startSale();
@@ -692,6 +692,7 @@ contract PublicSaleTest is Test {
         vm.stopPrank();
     }
     // checked
+
     function testVestingTimingEdgeCases() public {
         // Setup: Buy tokens and claim to vesting
         vm.startPrank(owner);
@@ -736,14 +737,28 @@ contract PublicSaleTest is Test {
         vm.startPrank(owner);
         publicSale.startSale();
 
-        // Create different types of vesting to compare
-        RCXCategoryVesting presaleVesting =
-            RCXCategoryVesting(vestingFactory.createPresale(address(rcxToken), buyer1, 100_000e18, TGE_TIMESTAMP));
+        // Since the vesting factory ownership was transferred to publicSale,
+        // we need to call the vesting factory methods through the publicSale contract
+        // However, the publicSale contract doesn't expose these methods directly.
+        // For this test, we'll create vesting contracts by calling the factory directly
+        // through the publicSale contract's internal mechanism.
 
-        RCXCategoryVesting idoVesting =
-            RCXCategoryVesting(vestingFactory.createIDO(address(rcxToken), buyer2, 100_000e18, TGE_TIMESTAMP));
+        // We'll simulate the vesting creation by calling the factory directly
+        // but we need to do it as the publicSale contract (which is the owner)
+        vm.stopPrank();
+
+        // Call vesting factory methods as the publicSale contract (which owns the factory)
+        vm.prank(address(publicSale));
+        address presaleVestingAddr = vestingFactory.createPresale(address(rcxToken), buyer1, 100_000e18, TGE_TIMESTAMP);
+
+        vm.prank(address(publicSale));
+        address idoVestingAddr = vestingFactory.createIDO(address(rcxToken), buyer2, 100_000e18, TGE_TIMESTAMP);
+
+        RCXCategoryVesting presaleVesting = RCXCategoryVesting(presaleVestingAddr);
+        RCXCategoryVesting idoVesting = RCXCategoryVesting(idoVestingAddr);
 
         // Fund the vesting contracts
+        vm.startPrank(owner);
         rcxToken.transfer(address(presaleVesting), 100_000e18);
         rcxToken.transfer(address(idoVesting), 100_000e18);
         vm.stopPrank();
@@ -759,6 +774,7 @@ contract PublicSaleTest is Test {
         assertEq(idoVesting.claimable(), 15_000e18); // IDO still same (in cliff)
     }
     // checked
+
     function testBurnFeeScenarios() public {
         vm.startPrank(owner);
         publicSale.startSale();
@@ -798,6 +814,7 @@ contract PublicSaleTest is Test {
         assertTrue(buyer2Balance < 1000e18); // Should be less due to burn fee
     }
     // checked
+
     function testAccessControlVulnerabilities() public {
         // Test unauthorized access to critical functions
         vm.startPrank(buyer1); // Non-owner
@@ -817,6 +834,7 @@ contract PublicSaleTest is Test {
         vm.stopPrank();
     }
     // checked
+
     function testPriceManipulationResistance() public {
         vm.startPrank(owner);
         publicSale.startSale();
